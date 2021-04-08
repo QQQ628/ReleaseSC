@@ -1,0 +1,182 @@
+pragma solidity ^0.4.14;
+contract TRE{
+    struct register_record
+    {
+        uint dp; //deposit
+        uint[] Tw; //working time 
+        address add; //participate
+        uint hf; // honest flag
+    }
+    
+    struct service_list
+    {
+        address add;
+        uint rv; //remuneration
+        uint df; //frozen deposit
+        uint[] td; //working_time_demand
+        uint c;
+        uint g;
+    }
+    
+    
+    struct result_list
+    {
+        bool res; //result
+        address add;
+        uint tc; //current time
+        uint service_num;
+    }
+    
+    struct report_list
+    {
+        address add;
+        uint result_num;
+        uint dr;
+        bool res;
+        
+    }
+    
+    register_record[100] public records;
+    result_list[100] public results;
+    service_list[100] public services;
+    report_list[100] public reports;
+    register_record[100] candicates;
+    address public owner = msg.sender; //owner of contract  
+    
+    uint count = 0; //record the number of worker
+    uint count1 = 0; // number of services
+    uint count2 = 0; // number of results
+    uint count3 = 0; //number of results
+    
+    mapping (address => uint) AMapping;
+    
+     //register
+    function register(uint _dp, uint[] _tw) public returns(uint)
+    { 
+        uint time = now;
+        records[count].dp = _dp;
+        records[count].Tw = _tw;
+        records[count].add = msg.sender;
+        records[count].hf = 1;
+        AMapping[msg.sender] = count;
+        count = count + 1;
+        uint time0 = now;
+        return count;
+        return time - time0;
+        
+    }
+    
+    function request(uint _rv, uint _c, uint[] _td, uint _ds, uint _g)  public payable returns(uint)
+    {
+        
+        owner.transfer(_rv);
+       
+        services[count1].rv = _rv;
+        services[count1].df = _ds;
+        services[count1].td = _td;
+        services[count1].c = _c;
+        services[count1].g = _g;
+        uint i = 0;
+        uint can_length = 0;
+        for(; i < count; i++)
+        {
+          
+            if(records[i].dp >= _ds && records[i].Tw[0] <= _td[0] && records[i].Tw[1] >= _td[1] && records[i].hf != 0) 
+                {
+                       candicates[i].dp = records[i].dp; //deposit
+                       candicates[i].Tw = records[i].Tw;
+                       candicates[i].add = records[i].add;
+                       candicates[i].hf = records[i].hf;
+                       can_length++;
+                  }
+               
+       
+        }//select legal worker
+        
+        uint min  = _td[0] - candicates[0].Tw[0] + candicates[0].Tw[1] - _td[1];
+        uint max = 1;
+        uint j = 1;
+        for(; j < can_length; j++)
+        {
+            if(_td[0] - candicates[j].Tw[0] + candicates[j].Tw[1] - _td[1] > min || candicates[j].hf < max)
+            {
+                delete candicates[j];
+            }
+            else
+            {
+                min = _td[0] - candicates[j].Tw[0] + candicates[j].Tw[1] - _td[1];
+                if(candicates[j].hf >= max)
+                {
+                    max = candicates[j].hf;
+                }
+            }
+            
+        }//select optimal answer
+        
+        services[count1].add = candicates[0].add;
+        count1++;
+       return count1 - 1;
+        
+    }
+    
+    //the function for service _ser is the service number
+    function result(uint _ser)  public payable returns(bool)
+    {
+        owner.transfer(services[_ser].df); //deposit first
+        results[count2].add = msg.sender;
+        uint t = now;
+        if(services[_ser].g ** t >= services[_ser].c)
+        {
+            results[count2].res = true;
+            results[count2].tc = t;
+            results[count2].service_num = _ser;
+            count2++;
+            return true;
+        }
+        else
+        {
+            return false;
+            
+        }
+        
+  
+    }
+    
+    function report(uint _res, uint _dr) public payable returns(bool)
+    {
+        if(now > results[_res].tc + 24 hours) return false; //over one day: do not report
+        
+        owner.transfer(_dr);
+        reports[count3].add = msg.sender;
+        reports[count3].dr = _dr;
+        reports[count3].result_num = _res;
+        uint _ser = results[_res].service_num;
+        uint _tc = results[_res].tc;
+        uint _c = services[_ser].c;
+        if(services[_ser].g ** _tc < _c)
+        {
+            reports[count3].add.transfer(services[_ser].df);
+            reports[count3].add.transfer(_dr);
+            reports[count3].res = true;
+            uint mis = AMapping[results[_res].add];
+            records[mis].hf = 0;
+            count3++;
+            return true;
+        }
+        else
+        {
+            results[_res].add.transfer(services[_ser].rv);
+            results[_res].add.transfer(services[_ser].df);
+            count3++;
+            return false;
+        }
+        
+    }
+    
+}
+
+
+账户： 0x69D58be166413b925e311CE685465c5E1954a61f
+rinskeby合约地址：
+0x31Cb001161C0548a58DcaA9aA471edAFeaa4A5bD
+

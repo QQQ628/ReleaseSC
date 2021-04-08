@@ -1,0 +1,170 @@
+#include <pbc/pbc.h>
+#include <time.h>
+
+int main(int argc, char **argv) {
+    mpz_t z,v,M,C2,C4,hht;
+    element_t s,tt,r,rr, ht, g2, g3, eid, eidr, C1, C3, g ,Ppub,Qid,dID,gID,gIDr, tem1,tem2,tem3, tem;
+    pairing_pp_t pp;
+
+    pairing_t pairing;
+    char param[1024];
+    size_t count = fread(param, 1, 1024, stdin);
+    if (!count) pbc_die("input error");
+    pairing_init_set_buf(pairing, param, count);
+
+
+    //整数
+    mpz_init(z);
+    mpz_init(v);
+    mpz_init(C2);
+    mpz_init(C4);
+    mpz_init(hht);
+    
+    //初始化并给消息赋值
+    mpz_init_set_str(M, "20200305", 0);
+    gmp_printf ("M: %Zd\n", M);
+    mpz_init_set_str(hht, "20210305", 0);
+    gmp_printf("hht: %Zd\n", hht);
+
+    //在1和r之间的整数
+    element_init_Zr(s, pairing);
+    element_init_Zr(r, pairing);
+    element_init_Zr(rr, pairing);
+    
+    element_init_Zr(ht, pairing);
+    
+    element_init_G1(g3, pairing);
+
+    //循环群G1
+    element_init_G1(g, pairing);
+    element_init_G1(Ppub, pairing);
+    element_init_G1(Qid, pairing);
+    element_init_G1(dID, pairing);
+  //  element_init_G1(ht, pairing);
+    element_init_G1(C1, pairing);
+    element_init_G1(C3, pairing);
+    element_init_G1(g2, pairing);
+    element_init_G1(tt, pairing);
+    
+    
+    
+
+    //循环群GT
+    element_init_GT(gID, pairing);
+    element_init_GT(gIDr, pairing);
+    element_init_GT(tem1, pairing);
+    element_init_GT(tem2, pairing);
+    element_init_GT(tem3, pairing);
+    element_init_GT(tem, pairing);
+    element_init_GT(eid, pairing);
+    element_init_GT(eidr, pairing);
+
+
+
+    //Setup, system parameters generation
+    printf("SETUP STAGE\n");
+    element_random(g);
+    element_random(s);
+    element_pow_zn(Ppub, g, s);//Ppub=sP
+
+    //Extract, key calculation
+    printf("EXTRACT STAGE\n");
+    element_from_hash(Qid, "A", 1);//Qid=H("A")
+    element_pow_zn(dID, Qid, s);
+
+    //Encrypt encrypt M with ID
+    printf("Encrypt STAGE\n");
+   
+    element_random(rr);
+    element_pow_zn(C1, g, rr); //generate g^rr
+
+    element_random(r);
+    element_pow_zn(C3, g, r);// generate g^r
+
+    element_pow_mpz(g2, g, hht);
+   
+     
+    pairing_pp_init(pp, Ppub, pairing);
+    pairing_pp_apply(gID, Qid, pp); //gID=e(Qid,Ppub)
+    pairing_pp_clear(pp);
+    element_pow_zn(gIDr, gID, rr); //gIDr=gID^rr
+    element_to_mpz(z,gIDr); //H(gIDr) H2
+    mpz_xor(C2, z, hht);    //generate C2
+
+    element_from_hash(ht, hht ,8); //generate ht = H(t)
+    element_pow_zn(g2, g, ht);//generate g^ht
+    element_mul(g3, Ppub, g2);//g^s * g^ht
+
+    pairing_pp_init(pp, g3, pairing);
+    pairing_pp_apply(eid, Qid, pp); // e(Qid,tpub)
+    pairing_pp_clear(pp);
+    element_pow_zn(eidr, eid, r);
+    element_to_mpz(v, eidr);
+    mpz_xor(C4, M, v);  //generate C4
+    
+
+    //mpz_xor(V,M,z); //V=M xor z
+    //element_printf("C3: %B\n", C3);
+    gmp_printf ("C2: %Zd\n", C2);
+    gmp_printf("C4: %Zd\n", C4);
+
+
+    //Decrypt decrypt C = <C1,C2,C3,C4>
+
+    printf("Decrypt STAGE\n");
+    pairing_pp_init(pp, C1, pairing);
+    pairing_pp_apply(tem1,dID, pp);
+    pairing_pp_clear(pp);
+    element_to_mpz(z,tem1);
+    mpz_xor(hht,C2,z); //generate ht
+    //element_from_hash(ht, hht ,8); //generate ht = H(t)
+
+    pairing_pp_init(pp, C3, pairing);
+    pairing_pp_apply(tem2, dID, pp);
+
+    element_pow_zn(tt, Qid, ht);
+    pairing_pp_apply(tem3, tt, pp);
+    pairing_pp_clear(pp);
+    element_mul(tem, tem2, tem3);
+    element_to_mpz(z,tem);
+    
+    mpz_xor(M,z,C4);
+
+
+    gmp_printf("hht: %Zd\n", hht);
+    gmp_printf("M: %Zd\n", M);
+
+    //释放内存
+    mpz_clear(z);
+  //  mpz_clear(V);
+    mpz_clear(M);
+    element_clear(s);
+    element_clear(r);
+    element_clear(rr);
+    element_clear(ht);
+    mpz_clear(z);
+    element_clear(g2);
+    element_clear(g3);
+    mpz_clear(hht);
+    element_clear(eid);
+    element_clear(eidr);
+    mpz_clear(v);
+    element_clear(C1);
+    mpz_clear(C2);
+    element_clear(C3);
+    mpz_clear(C4);
+    element_clear(g);
+    element_clear(Ppub);
+    element_clear(Qid);
+    element_clear(dID);
+    element_clear(gID);
+    element_clear(gIDr);
+  //  element_clear(U);
+    element_clear(tem1);
+    element_clear(tem2);
+    element_clear(tem3);
+    element_clear(tem);
+    element_clear(tt);
+
+    return 0;
+}
